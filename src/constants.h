@@ -22,7 +22,7 @@
 
 #define IR_SENSOR_INPUT 13  // IR Sensor output data
 
-#define BUZZER_PIN 27  // BUZZER
+#define BUZZER_PIN 22  // BUZZER
 
 #define LED_RED 16
 #define LED_GREEN 17

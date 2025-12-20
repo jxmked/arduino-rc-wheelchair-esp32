@@ -23,6 +23,12 @@ MotorController Motor_2(M2_RPWM, M2_LPWM, MOTOR_ENABLE_FLAG, M2_R_IS, M2_L_IS);
 
 IRSensor sensor(IR_SENSOR_INPUT);
 
+//******* For Testing *******//
+#define LEFT_RIGHT_PIN 14
+#define FRONT_BACK_PIN 27
+
+////////////////////////////////
+
 int led_pos = 0x1;
 
 void setup() {
@@ -35,12 +41,8 @@ void setup() {
 }
 
 void loop() {
+  // Priority to obstacle detection
   sensor.update();
-
-  Signal_LED.update();
-
-  Motor_1.update();
-  Motor_2.update();
 
   if (sensor.isObstacleDetected()) {
     Motor_1.stop();
@@ -56,29 +58,16 @@ void loop() {
     return;
   }
 
-  led_pos = led_pos << 1;
+  const uint16_t left_right_value = analogRead(LEFT_RIGHT_PIN);
+  const uint16_t front_back_value = analogRead(FRONT_BACK_PIN);
 
-  if (led_pos > 0x10) {
-    led_pos = 0x1;
-  }
+  Serial.print("LR & FB Values: ");
+  Serial.print(left_right_value);
+  Serial.print(" , ");
+  Serial.println(front_back_value);
+  delay(50);
 
-  Signal_LED.offAll();
-
-  if (led_pos == 0x1) {
-    Signal_LED.setState(E_SignalLED::GESTURE, true);
-    buzz.off();
-    Motor_1.forward();
-    Motor_2.forward();
-  } else if (led_pos == 0x2) {
-    Signal_LED.setState(E_SignalLED::OVERRIDE, true);
-  } else if (led_pos == 0x4) {
-    Signal_LED.setState(E_SignalLED::LOWBAT, true);
-    buzz.on();
-  } else if (led_pos == 0x8) {
-    Signal_LED.setState(E_SignalLED::BLUETOOTH, true);
-    Motor_1.reverse();
-    Motor_2.reverse();
-  }
+  return;
 
   Signal_LED.update();
 
