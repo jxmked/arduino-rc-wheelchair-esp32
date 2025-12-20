@@ -84,6 +84,4 @@ void loop() {
 
   Motor_1.update();
   Motor_2.update();
-
-  delay(500);
 }

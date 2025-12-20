@@ -32,10 +32,7 @@ void IRSensor::update() {
 
 bool IRSensor::isObstacleDetected() {
   float distance = get_distance();
-
-  Serial.print("IR Sensor Distance: ");
-  Serial.println(distance);
-
+  
   if (distance <= static_cast<float>(OBSTACLE_DISTANCE_THRESHOLD)) {
     return true;
   }
@@ -50,7 +47,8 @@ float IRSensor::get_distance() {
   float distance = static_cast<float>(EMPIRICAL_CALIB) *
                    pow(voltage, static_cast<float>(VOLTAGE_DROP));
 
-  distance = map(distance, 76.25, 163508.97, 20.0, 150.0);  // constrain to 150 cm
+  distance =
+      map(distance, 76.25, 163508.97, 20.0, 150.0);  // constrain to 150 cm
 
   return distance;
 }
