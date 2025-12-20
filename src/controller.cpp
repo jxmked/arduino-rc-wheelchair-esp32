@@ -32,14 +32,26 @@ void Controller::reverse() {
 }
 
 void Controller::left() {
-  M1.reverse();
+  M1.stop();
   M2.forward();
   __state = ControllerState::LEFT;
 }
 void Controller::right() {
+  M2.stop();
+  M1.forward();
+  __state = ControllerState::RIGHT;
+}
+
+void Controller::hard_left() {
+  M1.reverse();
+  M2.forward();
+  __state = ControllerState::HARD_LEFT;
+}
+
+void Controller::hard_right() {
   M1.forward();
   M2.reverse();
-  __state = ControllerState::RIGHT;
+  __state = ControllerState::HARD_RIGHT;
 }
 
 void Controller::stop() {

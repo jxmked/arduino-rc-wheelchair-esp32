@@ -19,6 +19,10 @@ class Controller {
   void left();
   void right();
 
+  // Hard left and hard right is turning in place
+  void hard_left();
+  void hard_right();
+
   void stop();
   void disconnect();
 

@@ -48,8 +48,12 @@ void setup() {
 void loop() {
   // Priority to obstacle detection
   sensor.update();
+  mc.update();
+
+  Signal_LED.update();
 
   if (btn_override.pressed()) {
+    Signal_LED.offAll();
     mc.override();
 
     Signal_LED.setState(E_SignalLED::OVERRIDE, true);
@@ -92,22 +96,49 @@ void loop() {
 
   const uint16_t left_right_value = analogRead(LEFT_RIGHT_PIN);
   const uint16_t front_back_value = analogRead(FRONT_BACK_PIN);
-  const int y = (int)left_right_value - 512;
-  const int x = (int)front_back_value - 512;
+  const int __y = (int)left_right_value - 512;
+  const int __x = (int)front_back_value - 512;
 
-  if (y <= -510) {
-    mc.left();
-  } else if (y >= 510) {
-    mc.right();
+  int x = 0;
+  int y = 0;
+
+  if (__x <= -510) {
+    x = -1;
+  } else if (__x >= 510) {
+    x = 1;
+  }
+
+  if (__y <= -510) {
+    y = -1;
+  } else if (__y >= 510) {
+    y = 1;
+  }
+
+  if (y == 1) {
+    if (x == 1) {
+      mc.right();
+    } else if (x == -1) {
+      mc.left();
+    } else {
+      mc.hard_right();
+    }
+  } else if (y == -1) {
+    if (x == -1) {
+      mc.right();
+    } else if (x == 1) {
+      mc.left();
+    } else {
+      mc.hard_left();
+    }
   } else {
-    if (x <= -510) {
-      mc.reverse();
-    } else if (x >= 510) {
+    if (x == 1) {
       mc.forward();
+    } else if (x == -1) {
+      mc.reverse();
     }
   }
 
-  if (y > -128 && y < 128 && x > -128 && x < 128) {
+  if (y == 0 && x == 0) {
     mc.stop();
   }
 
@@ -115,8 +146,4 @@ void loop() {
       mc.state() != ControllerState::STOP) {
     Signal_LED.setState(E_SignalLED::GESTURE, true);
   }
-
-  Signal_LED.update();
-
-  mc.update();
 }
