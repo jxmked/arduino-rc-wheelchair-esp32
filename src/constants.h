@@ -48,7 +48,8 @@
 //
 #define EMPIRICAL_CALIB 61.573
 #define VOLTAGE_DROP -1.1068
-#define SAMPLING_SIZE 8
+#define SAMPLING_SIZE 5 // Number of samples for noise reduction.  
+                        // The higher, the smoother but less responsive
 //
 
 #endif
