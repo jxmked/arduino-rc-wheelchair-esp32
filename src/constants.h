@@ -1,6 +1,7 @@
 #ifndef constant_h
 #define constant_h
 
+#define OBSTACLE_DISTANCE_THRESHOLD 60.0  // cm
 
 /** PINS **/
 // Pin  --- conn
@@ -33,7 +34,7 @@
 
 #define MOTOR_MAX_POWER 255  // 0 = No Power, 255 = Max Power (0-255)
 
-#define USE_MOTOR_DRIVER 0  // 1 = Motor driver is being used, 0 = relay is being used (0, 1)
+#define USE_MOTOR_DRIVER 0  // 1 = Motor driver, 0 = relay  (0, 1)
 
 // Sense restriction and default faulty protection
 #define RSENSE 1000.0           // 1 kΩ resistor
@@ -42,10 +43,12 @@
 #define ADC_BITS 10             // resolution you choose (0-1023)
 #define OVERCURRENT_LIMIT 28.0  // amps
 #define FAULT_VOLTAGE 3.2       // V indicates fault
-
 //
 
-
-
+//
+#define EMPIRICAL_CALIB 61.573
+#define VOLTAGE_DROP -1.1068
+#define SAMPLING_SIZE 8
+//
 
 #endif

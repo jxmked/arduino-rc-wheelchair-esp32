@@ -150,6 +150,20 @@
       "top": -28.8,
       "left": 124.8,
       "attrs": { "text": "Motor 2" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led9",
+      "top": 226.8,
+      "left": 80.6,
+      "attrs": { "color": "white" }
+    },
+    {
+      "type": "wokwi-text",
+      "id": "text4",
+      "top": 201.6,
+      "left": 28.8,
+      "attrs": { "text": "Motor Enable Status" }
     }
   ],
   "connections": [
@@ -202,7 +216,9 @@
     [ "esp:23", "bb1:2t.a", "green", [ "h38.4", "v19.2", "h57.6", "v28.8" ] ],
     [ "esp:22", "bb1:1t.a", "green", [ "h28.8", "v19.2", "h57.6" ] ],
     [ "pot1:SIG", "bb1:1t.c", "green", [ "h-14.6", "v-10.6" ] ],
-    [ "pot3:SIG", "bb1:2t.d", "green", [ "v9.6", "h-298.4", "v-134.4", "h-316.8" ] ]
+    [ "pot3:SIG", "bb1:2t.d", "green", [ "v9.6", "h-298.4", "v-134.4", "h-316.8" ] ],
+    [ "led9:A", "and4:B", "gray", [ "v9.6", "h115.2" ] ],
+    [ "bb1:bn.3", "led9:C", "black", [ "v65.9", "h-401.6", "v-9.6" ] ]
   ],
   "dependencies": {}
 }

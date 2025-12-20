@@ -40,10 +40,10 @@ void MotorController::update() {
   float max_current = max(res_r.current, res_l.current);
   float max_voltage = max(res_r.voltage, res_l.voltage);
 
-  Serial.print("C & V: ");
-  Serial.print(max_current);
-  Serial.print(" : ");
-  Serial.println(max_voltage);
+  // Serial.print("C & V: ");
+  // Serial.print(max_current);
+  // Serial.print(" : ");
+  // Serial.println(max_voltage);
 
   // Fault detection (IS voltage saturates ~3.2V)
   // We need to stop the motor as long as we get abnormal value from motor
@@ -60,9 +60,10 @@ void MotorController::update() {
 #endif
 }
 
+void MotorController::disconnect() { digitalWrite(pins.EN, LOW); }
+
 void MotorController::stop() {
-  digitalWrite(pins.EN, LOW);
-  // Serial.println("Motor Stopped");
+  digitalWrite(pins.EN, HIGH);
 
 #if USE_MOTOR_DRIVER
 

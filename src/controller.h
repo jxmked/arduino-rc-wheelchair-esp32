@@ -4,12 +4,14 @@
 #include <Arduino.h>
 
 #include "./Enums.h"
-#include "./motorcontroller.h"
+#include "./MotorController.h"
 #include "./structs.h"
 
 class Controller {
  public:
   Controller();
+
+  void begin();
 
   void forward();
   void reverse();
@@ -24,6 +26,7 @@ class Controller {
 
  private:
   ControllerState __state;
+
 };
 
 #endif
