@@ -22,11 +22,15 @@ class Controller {
   void stop();
   void disconnect();
 
+  void override();
+
   void update();
 
  private:
   ControllerState __state;
-
+  MotorController M1;
+  MotorController M2;
+  
 };
 
 #endif
