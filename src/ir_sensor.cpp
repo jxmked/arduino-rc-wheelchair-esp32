@@ -50,6 +50,7 @@ bool IRSensor::isObstacleDetected() {
 float IRSensor::get_distance() {
   float voltage = static_cast<float>(__current_value);
 
+  //******* For Testing *******//
   float distance = map(voltage, 0, 1023, 20, 150);
 
   // Serial.print("V & D'cm : ");

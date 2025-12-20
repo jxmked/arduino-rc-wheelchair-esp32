@@ -14,7 +14,10 @@ Controller::Controller()
   __state = ControllerState::IDLE;
 }
 
-void Controller::begin() {}
+void Controller::begin() {
+  M1.stop();
+  M2.stop();
+}
 
 void Controller::forward() {
   M1.forward();

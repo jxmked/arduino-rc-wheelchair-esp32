@@ -1,11 +1,13 @@
 #include <Arduino.h>
 
+#include "./Button.h"
 #include "./Buzzer.h"
 #include "./Enums.h"
 #include "./MotorController.h"
 #include "./SignalLED.h"
 #include "./TimeInterval.h"
 #include "./constants.h"
+#include "./controller.h"
 #include "./ir_sensor.h"
 #include "./structs.h"
 
@@ -18,10 +20,11 @@ SignalLED Signal_LED({
 
 Buzzer buzz(BUZZER_PIN);
 
-MotorController Motor_1(M1_RPWM, M1_LPWM, MOTOR_ENABLE_FLAG, M1_R_IS, M1_L_IS);
-MotorController Motor_2(M2_RPWM, M2_LPWM, MOTOR_ENABLE_FLAG, M2_R_IS, M2_L_IS);
-
 IRSensor sensor(IR_SENSOR_INPUT);
+
+Controller mc;
+
+Button btn_override(OVERRIDE_PUSH_BTN);
 
 //******* For Testing *******//
 #define LEFT_RIGHT_PIN 14
@@ -29,24 +32,49 @@ IRSensor sensor(IR_SENSOR_INPUT);
 
 ////////////////////////////////
 
-int led_pos = 0x1;
+TimeInterval deoverride_timer(5000, 0, true);
+bool is_override = false;
 
 void setup() {
   Serial.begin(115200);
 
   analogReadResolution(ADC_BITS);
 
-  Motor_1.stop();
-  Motor_2.stop();
+  btn_override.begin();
+  deoverride_timer.pause();
+  mc.begin();
 }
 
 void loop() {
   // Priority to obstacle detection
   sensor.update();
 
+  if (btn_override.pressed()) {
+    mc.override();
+
+    Signal_LED.setState(E_SignalLED::OVERRIDE, true);
+    Serial.println("Override Button Pressed! Motors Disconnected.");
+
+    deoverride_timer.reset();
+    deoverride_timer.resume();
+    is_override = true;
+
+    return;
+  }
+
+  if (is_override) {
+    if (deoverride_timer.marked()) {
+      is_override = false;
+      deoverride_timer.pause();
+      Signal_LED.setState(E_SignalLED::OVERRIDE, false);
+      Serial.println("Override Period Ended. Motors Re-Enabled.");
+    }
+
+    return;
+  }
+
   if (sensor.isObstacleDetected()) {
-    Motor_1.stop();
-    Motor_2.stop();
+    mc.stop();
 
     Signal_LED.setState(E_SignalLED::GESTURE, true);
     Signal_LED.setState(E_SignalLED::OVERRIDE, true);
@@ -56,21 +84,39 @@ void loop() {
     Serial.println("Obstacle Detected! Stopping Motors.");
 
     return;
+  } else {
+    Signal_LED.offAll();
   }
+
+  //******* For Testing *******//
 
   const uint16_t left_right_value = analogRead(LEFT_RIGHT_PIN);
   const uint16_t front_back_value = analogRead(FRONT_BACK_PIN);
+  const int y = (int)left_right_value - 512;
+  const int x = (int)front_back_value - 512;
 
-  Serial.print("LR & FB Values: ");
-  Serial.print(left_right_value);
-  Serial.print(" , ");
-  Serial.println(front_back_value);
-  delay(50);
+  if (y <= -510) {
+    mc.left();
+  } else if (y >= 510) {
+    mc.right();
+  } else {
+    if (x <= -510) {
+      mc.reverse();
+    } else if (x >= 510) {
+      mc.forward();
+    }
+  }
 
-  return;
+  if (y > -128 && y < 128 && x > -128 && x < 128) {
+    mc.stop();
+  }
+
+  if (mc.state() != ControllerState::IDLE &&
+      mc.state() != ControllerState::STOP) {
+    Signal_LED.setState(E_SignalLED::GESTURE, true);
+  }
 
   Signal_LED.update();
 
-  Motor_1.update();
-  Motor_2.update();
+  mc.update();
 }

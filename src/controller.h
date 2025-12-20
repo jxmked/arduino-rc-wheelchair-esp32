@@ -26,11 +26,12 @@ class Controller {
 
   void update();
 
+  ControllerState state() { return __state; }
+
  private:
   ControllerState __state;
   MotorController M1;
   MotorController M2;
-  
 };
 
 #endif
