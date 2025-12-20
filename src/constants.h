@@ -31,9 +31,9 @@
 #define OVERRIDE_PUSH_BTN 21  // OVERRIDE PUSH BUTTON
 /** END PINS **/
 
-#define MOTOR_MAX_POWER 1024  // 0 = No Power, 255 = Max Power (0-255)
+#define MOTOR_MAX_POWER 255  // 0 = No Power, 255 = Max Power (0-255)
 
-#define USE_MOTOR_DRIVER 1  // 1 = Motor driver is being used, 0 = relay is being used (0, 1)
+#define USE_MOTOR_DRIVER 0  // 1 = Motor driver is being used, 0 = relay is being used (0, 1)
 
 // Sense restriction and default faulty protection
 #define RSENSE 1000.0           // 1 kΩ resistor
