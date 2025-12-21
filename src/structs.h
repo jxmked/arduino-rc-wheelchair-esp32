@@ -1,6 +1,8 @@
 #ifndef STRUCTS_h
 #define STRUCTS_h
 
+#include <Arduino.h>
+
 struct MOTOR_CONTROLLER_PINS {
   uint16_t R_PWM, L_PWM, EN, R_IS, L_IS;
 };

@@ -6,6 +6,7 @@
 #include "./MotorController.h"
 #include "./SignalLED.h"
 #include "./TimeInterval.h"
+#include "./boot.h"
 #include "./constants.h"
 #include "./controller.h"
 #include "./ir_sensor.h"
@@ -19,12 +20,12 @@ SignalLED Signal_LED({
 });
 
 Buzzer buzz(BUZZER_PIN);
-
+Button btn_override(OVERRIDE_PUSH_BTN);
 IRSensor sensor(IR_SENSOR_INPUT);
 
 Controller mc;
 
-Button btn_override(OVERRIDE_PUSH_BTN);
+Boot boot_anim;
 
 //******* For Testing *******//
 #define LEFT_RIGHT_PIN 14
@@ -40,6 +41,7 @@ void setup() {
 
   analogReadResolution(ADC_BITS);
 
+  boot_anim.begin();
   btn_override.begin();
   deoverride_timer.pause();
   mc.begin();
@@ -49,6 +51,12 @@ void loop() {
   // Priority to obstacle detection
   sensor.update();
   mc.update();
+
+  if (boot_anim.is_animating()) {
+    boot_anim.loop();
+    mc.disconnect();
+    return;
+  }
 
   Signal_LED.update();
 
