@@ -16,4 +16,6 @@ enum class ControllerState {
   HARD_RIGHT
 };
 
+enum class ClientState { DISCONNECTED, CONNECTING, CONNECTED };
+
 #endif

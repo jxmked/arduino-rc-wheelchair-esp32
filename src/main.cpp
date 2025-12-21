@@ -7,6 +7,7 @@
 #include "./SignalLED.h"
 #include "./TimeInterval.h"
 #include "./boot.h"
+#include "./client_connect.h"
 #include "./constants.h"
 #include "./controller.h"
 #include "./ir_sensor.h"
@@ -18,6 +19,8 @@ SignalLED Signal_LED({
     .pin_lowbat = LED_YELLOW,
     .pin_bt = LED_GREEN,
 });
+
+ClientConnect client;
 
 Buzzer buzz(BUZZER_PIN);
 Button btn_override(OVERRIDE_PUSH_BTN);
@@ -41,6 +44,8 @@ void setup() {
 
   analogReadResolution(ADC_BITS);
 
+  client.begin();
+
   boot_anim.begin();
   btn_override.begin();
   deoverride_timer.pause();
@@ -51,6 +56,7 @@ void loop() {
   // Priority to obstacle detection
   sensor.update();
   mc.update();
+  client.loop();
 
   if (boot_anim.is_animating()) {
     boot_anim.loop();
@@ -59,6 +65,16 @@ void loop() {
   }
 
   Signal_LED.update();
+
+  if (!client.is_connected()) {
+    client.connect();
+    mc.stop();
+    mc.disconnect();
+    Signal_LED.setState(E_SignalLED::BLUETOOTH, false);
+    return;
+  } else {
+    Signal_LED.setState(E_SignalLED::BLUETOOTH, true);
+  }
 
   if (btn_override.pressed()) {
     Signal_LED.offAll();

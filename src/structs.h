@@ -15,4 +15,9 @@ struct SignalLEDProps {
   uint16_t pin_gesture, pin_override, pin_lowbat, pin_bt;
 };
 
+struct Axis_t {
+  // either -1, 0, or 1
+  uint8_t x, y;
+};
+
 #endif
