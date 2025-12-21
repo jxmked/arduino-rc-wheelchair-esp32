@@ -12,7 +12,7 @@
  * Will modify after integrating with main project
  */
 
-IRSensor::IRSensor(int pin)
+IRSensor::IRSensor(uint16_t pin)
     : __pin(pin), __current_value(0.0), __sum_count(0), __timer(1, 0, true) {}
 
 void IRSensor::update() {

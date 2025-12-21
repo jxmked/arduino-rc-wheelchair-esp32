@@ -2,7 +2,7 @@
 #define STRUCTS_h
 
 struct MOTOR_CONTROLLER_PINS {
-  int R_PWM, L_PWM, EN, R_IS, L_IS;
+  uint16_t R_PWM, L_PWM, EN, R_IS, L_IS;
 };
 
 struct MOTOR_PROPS {
@@ -10,10 +10,7 @@ struct MOTOR_PROPS {
 };
 
 struct SignalLEDProps {
-  int pin_gesture;
-  int pin_override;
-  int pin_lowbat;
-  int pin_bt;
+  uint16_t pin_gesture, pin_override, pin_lowbat, pin_bt;
 };
 
 #endif

@@ -6,8 +6,9 @@
 
 class MotorController {
  public:
-  MotorController(int R_PWM, int L_PWM, int EN, int R_IS, int L_IS);
-  MOTOR_PROPS sense_motor(int pin);
+  MotorController(uint16_t R_PWM, uint16_t L_PWM, uint16_t EN, uint16_t R_IS,
+                  uint16_t L_IS);
+  MOTOR_PROPS sense_motor(uint16_t pin);
   void update();
   void disconnect();
   void stop();

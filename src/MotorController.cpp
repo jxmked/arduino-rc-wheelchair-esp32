@@ -7,8 +7,8 @@
 #include "constants.h"
 #include "structs.h"
 
-MotorController::MotorController(int R_PWM, int L_PWM, int EN, int R_IS,
-                                 int L_IS)
+MotorController::MotorController(uint16_t R_PWM, uint16_t L_PWM, uint16_t EN,
+                                 uint16_t R_IS, uint16_t L_IS)
     : pins{R_PWM, L_PWM, EN, R_IS, L_IS},
       __current_state(MotorState::STOP),
       __is_ready(false) {
@@ -22,10 +22,10 @@ MotorController::MotorController(int R_PWM, int L_PWM, int EN, int R_IS,
 #endif
 }
 
-MOTOR_PROPS MotorController::sense_motor(int pin) {
+MOTOR_PROPS MotorController::sense_motor(uint16_t pin) {
   // Get motor data (Current and Voltage) from pin R_IS and L_IS
   MOTOR_PROPS values;
-  int adc = analogRead(pin);                                 // 0–1023
+  uint16_t adc = analogRead(pin);                                 // 0–1023
   values.voltage = (adc * ADC_REF) / ((1 << ADC_BITS) - 1);  // convert to volts
   values.current = values.voltage * IS_RATIO;  // I_L = V_IS × 8500
   return values;

@@ -17,7 +17,7 @@ SignalLED::SignalLED(SignalLEDProps props)
 }
 
 void SignalLED::setState(E_SignalLED led, bool state) {
-  int set_state = state ? HIGH : LOW;
+  byte set_state = state ? HIGH : LOW;
   switch (led) {
     case E_SignalLED::GESTURE:
       __current_state.pin_gesture = set_state;

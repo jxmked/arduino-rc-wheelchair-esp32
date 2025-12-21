@@ -7,16 +7,16 @@
 
 class IRSensor {
  public:
-  IRSensor(int pin);
+  IRSensor(uint16_t pin);
   void update();
   bool isObstacleDetected();
   float get_distance();
 
  private:
-  int __pin;
+  uint16_t __pin;
   float __current_value;
-  int __sum_value;  // Will be use for noise reduction
-  int __sum_count;
+  unsigned long __sum_value;  // Will be use for noise reduction
+  uint8_t __sum_count;
 
   TimeInterval __timer;
 };

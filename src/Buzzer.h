@@ -2,13 +2,13 @@
 #define Buzzer_h
 
 class Buzzer {
-public:
+ public:
   Buzzer(int buzzer_pin);
   void on();
   void off();
 
-private:
-  int __buzzer_pin;
+ private:
+  uint16_t __buzzer_pin;
 };
 
 #endif
