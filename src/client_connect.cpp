@@ -5,6 +5,8 @@
 #include "./Enums.h"
 #include "./structs.h"
 
+// This is a stub implementation
+
 ClientConnect::ClientConnect() {}
 
 void ClientConnect::begin() {}
