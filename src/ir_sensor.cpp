@@ -13,7 +13,7 @@
  */
 
 IRSensor::IRSensor(uint16_t pin)
-    : __pin(pin), __current_value(0.0), __sum_count(0), __timer(1, 0, true) {}
+  : __pin(pin), __current_value(0.0), __sum_count(0), __timer(1, 0, true), __acceptable_count(0), __obst_found(0) {}
 
 void IRSensor::update() {
   // This way, we can reduce the noise by averaging multiple samples
@@ -27,7 +27,7 @@ void IRSensor::update() {
 
   if (__sum_count >= SAMPLING_SIZE) {
     __current_value =
-        static_cast<float>(__sum_value) / static_cast<float>(SAMPLING_SIZE);
+      static_cast<float>(__sum_value) / static_cast<float>(SAMPLING_SIZE);
 
     __sum_value = 0;
     __sum_count = 0;
@@ -38,41 +38,55 @@ void IRSensor::update() {
 }
 
 bool IRSensor::isObstacleDetected() {
-  float distance = get_distance();
+  const float distance = get_distance();
+  const bool obs_detected = distance <= static_cast<float>(OBSTACLE_DISTANCE_THRESHOLD);
 
-  if (distance <= static_cast<float>(OBSTACLE_DISTANCE_THRESHOLD)) {
-    return true;
+  if (__acceptable_count >= SENSOR_DEACT_RATE) {
+    if (obs_detected) {
+      __acceptable_count = 0;
+    } else {
+      __obst_found = false;
+      __acceptable_count = 0;
+    }
   }
 
-  return false;
+  if (!__obst_found && obs_detected) {
+    __obst_found = true;
+    __acceptable_count = 0;
+  } else {
+    __acceptable_count++;
+  }
+
+  return __obst_found;
 }
 
+//float IRSensor::get_distance() {
+// float voltage = static_cast<float>(__current_value);
+
+// Serial.println(voltage);
+
+//******* For Testing *******//
+//float distance = map(voltage, 0, 1023, 20, 150);
+
+// Serial.print("V & D'cm : ");
+// Serial.print(voltage);
+// Serial.print(" : ");
+// Serial.println(distance);
+
+//return distance;
+//}
+
 float IRSensor::get_distance() {
-  float voltage = static_cast<float>(__current_value);
+  // Convert ANalog value to distance in cm
+  // D = A * V^B
+  float voltage = static_cast<float>(__current_value) * (3.3 / 1023.0);
+  float distance = static_cast<float>(EMPIRICAL_CALIB) * pow(voltage, static_cast<float>(VOLTAGE_DROP));
 
-  //******* For Testing *******//
-  float distance = map(voltage, 0, 1023, 20, 150);
-
-  // Serial.print("V & D'cm : ");
+  // Serial.print("IR Voltage: ");
   // Serial.print(voltage);
-  // Serial.print(" : ");
-  // Serial.println(distance);
+  // Serial.print(" V, Distance: ");
+  // Serial.print(distance);
+  // Serial.println(" cm");
 
   return distance;
 }
-
-// float IRSensor::get_distance() {
-//   // Convert ANalog value to distance in cm
-//   // D = A * V^B
-//   float voltage = static_cast<float>(__current_value) * (2.5 / 1023.0);
-//   float distance = static_cast<float>(EMPIRICAL_CALIB) *
-//                    pow(voltage, static_cast<float>(VOLTAGE_DROP));
-
-//   Serial.print("IR Voltage: ");
-//   Serial.print(voltage);
-//   Serial.print(" V, Distance: ");
-//   Serial.print(distance);
-//   Serial.println(" cm");
-
-//   return distance;
-// }

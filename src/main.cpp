@@ -55,8 +55,13 @@ void setup() {
 void loop() {
   // Priority to obstacle detection
   sensor.update();
+  const auto res = sensor.isObstacleDetected();
+
+  Serial.println(res);
+  return;
   mc.update();
   client.loop();
+  buzz.loop();
 
   if (boot_anim.is_animating()) {
     boot_anim.loop();
@@ -91,8 +96,11 @@ void loop() {
   }
 
   if (is_override) {
+    buzz.play(250, 250);
+
     if (deoverride_timer.marked()) {
       is_override = false;
+      buzz.stop();
       deoverride_timer.pause();
       Signal_LED.setState(E_SignalLED::OVERRIDE, false);
       Serial.println("Override Period Ended. Motors Re-Enabled.");
@@ -109,9 +117,9 @@ void loop() {
     Signal_LED.setState(E_SignalLED::LOWBAT, true);
     Signal_LED.setState(E_SignalLED::BLUETOOTH, true);
 
-    Serial.println("Obstacle Detected! Stopping Motors.");
+    //Serial.println("Obstacle Detected! Stopping Motors.");
 
-    return;
+    //return;
   } else {
     Signal_LED.offAll();
   }

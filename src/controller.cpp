@@ -68,7 +68,7 @@ void Controller::disconnect() {
 
 void Controller::override() {
   stop();
-  disconnect();
+  //disconnect();
   __state = ControllerState::IDLE;
 }
 

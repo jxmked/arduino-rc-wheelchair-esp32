@@ -1,7 +1,7 @@
 #ifndef constant_h
 #define constant_h
 
-#define OBSTACLE_DISTANCE_THRESHOLD 60.0  // cm
+#define OBSTACLE_DISTANCE_THRESHOLD 69.0  // cm
 
 /** PINS **/
 // Pin  --- conn
@@ -21,6 +21,8 @@
 #define MOTOR_ENABLE_FLAG 4  // Toggle Motor Enable/Disable (For Both Motor)
 
 #define IR_SENSOR_INPUT 13  // IR Sensor output data
+
+#define SENSOR_DEACT_RATE 100 // counts
 
 #define BUZZER_PIN 22  // BUZZER
 
