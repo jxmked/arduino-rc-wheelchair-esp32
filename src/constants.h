@@ -22,7 +22,7 @@
 
 #define IR_SENSOR_INPUT 13  // IR Sensor output data
 
-#define SENSOR_DEACT_RATE 100 // counts
+#define SENSOR_DEACT_RATE 100  // counts
 
 #define BUZZER_PIN 22  // BUZZER
 
@@ -50,8 +50,12 @@
 //
 #define EMPIRICAL_CALIB 61.573
 #define VOLTAGE_DROP -1.1068
-#define SAMPLING_SIZE 5 // Number of samples for noise reduction.  
-                        // The higher, the smoother but less responsive
+#define SAMPLING_SIZE \
+  5  // Number of samples for noise reduction.
+     // The higher, the smoother but less responsive
 //
+
+#define SERVICE_UUID "c973126d-5afe-4aec-ab49-f8ffbd14f059"
+#define CHARACTERISTIC_UUID "9ca77c0d-14a4-403d-9677-0c2bf42b8194"
 
 #endif
