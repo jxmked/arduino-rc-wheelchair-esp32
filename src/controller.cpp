@@ -54,6 +54,19 @@ void Controller::hard_right() {
   __state = ControllerState::HARD_RIGHT;
 }
 
+void Controller::r_left() {
+  M1.stop();
+  M2.reverse();
+
+  __state = ControllerState::R_LEFT;
+}
+
+void Controller::r_right() {
+  M2.stop();
+  M1.reverse();
+  __state = ControllerState::R_RIGHT;
+}
+
 void Controller::stop() {
   M1.stop();
   M2.stop();
@@ -68,7 +81,7 @@ void Controller::disconnect() {
 
 void Controller::override() {
   stop();
-  //disconnect();
+  // disconnect();
   __state = ControllerState::IDLE;
 }
 

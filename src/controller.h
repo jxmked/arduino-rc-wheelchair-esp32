@@ -23,6 +23,9 @@ class Controller {
   void hard_left();
   void hard_right();
 
+  void r_left();
+  void r_right();
+
   void stop();
   void disconnect();
 

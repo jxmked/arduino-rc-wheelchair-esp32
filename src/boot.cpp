@@ -16,7 +16,7 @@ byte led_step[] = {1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0,
 #define BOOT_LED_COUNT 4
 
 Boot::Boot()
-    : __tick(250, 0, true),
+    : __tick(200, 0, true),
       __leds_pin{LED_RED, LED_GREEN, LED_YELLOW, LED_BLUE},
       __step(0),
       __is_animating(false) {

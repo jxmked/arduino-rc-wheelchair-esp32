@@ -13,7 +13,9 @@ enum class ControllerState {
   RIGHT,
   STOP,
   HARD_LEFT,
-  HARD_RIGHT
+  HARD_RIGHT,
+  R_LEFT,
+  R_RIGHT
 };
 
 enum class ClientState { DISCONNECTED, CONNECTING, CONNECTED };

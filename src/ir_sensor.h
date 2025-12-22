@@ -17,8 +17,6 @@ class IRSensor {
   float __current_value;
   unsigned long __sum_value;  // Will be use for noise reduction
   uint8_t __sum_count;
-  unsigned long __acceptable_count;
-  bool __obst_found;
 
   TimeInterval __timer;
 };

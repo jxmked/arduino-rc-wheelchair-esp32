@@ -32,17 +32,31 @@ Controller mc;
 Boot boot_anim;
 
 TimeInterval deoverride_timer(5000, 0, true);
+TimeInterval obst_clear(3000, 0, true);
+TimeInterval obst_mtr_discon(750, 0, true);
+
+bool is_obs_found = false;
 bool is_override = false;
 bool is_connected = false;
 
-volatile static uint8_t remote_data;
 unsigned long last_data_ms = 0;
+volatile static uint8_t remote_data;
+volatile static uint8_t last_remote_data;
 
 static BLERemoteCharacteristic* rem_chartc;
 static BLEAdvertisedDevice* selected_device;
 
 static BLEUUID SERVICE_UUID_B(SERVICE_UUID);
 static BLEUUID CHARACTERISTIC_UUID_B(CHARACTERISTIC_UUID);
+
+void S_LOG(String value) {
+  static String last_string;
+
+  if (last_string != value) {
+    Serial.println(value);
+    last_string = value;
+  }
+}
 
 static void notifyCallback(BLERemoteCharacteristic* ret_rem_chartc,
                            uint8_t* data, size_t length, bool is_notify) {
@@ -64,12 +78,12 @@ class AdvertisedDevice_cb : public BLEAdvertisedDeviceCallbacks {
 class BLEState_cb : public BLEClientCallbacks {
   void onConnect(BLEClient* client) {
     is_connected = true;
-    Serial.println("Connected to Server");
+    S_LOG("Connected to Server");
   }
 
   void onDisconnect(BLEClient* client) {
     is_connected = false;
-    Serial.println("Disconnected from Server!");
+    S_LOG("Disconnected from Server!");
 
     // The program hangs when it reaches this thing.
     // BLEDevice::getScan()->start(1);
@@ -123,8 +137,8 @@ void setup() {
   if (!is_connected) {
     // If not getting connected
     // Wait for 3 Sec before restarting the system
-    Serial.println("Handshake: FAILED");
-    Serial.println("Restarting in 3 Seconds");
+    S_LOG("Handshake: FAILED");
+    S_LOG("Restarting in 3 Seconds");
 
     delay(3000);
     ESP.restart();
@@ -146,12 +160,6 @@ void loop() {
 
   // Priority to obstacle detection
   sensor.update();
-
-  // const auto res = sensor.isObstacleDetected();
-
-  // Serial.println(res);
-  // return;
-
   mc.update();
 
   buzz.loop();
@@ -167,6 +175,9 @@ void loop() {
   if (!is_connected) {
     mc.stop();
     mc.disconnect();
+
+    S_LOG("Bluetooth disconnected");
+
     Signal_LED.setState(E_SignalLED::BLUETOOTH, false);
     return;
   } else {
@@ -178,7 +189,7 @@ void loop() {
     mc.override();
 
     Signal_LED.setState(E_SignalLED::OVERRIDE, true);
-    Serial.println("Override Button Pressed! Motors Disconnected.");
+    S_LOG("Override Button Pressed! Motors Disconnected.");
 
     deoverride_timer.reset();
     deoverride_timer.resume();
@@ -195,13 +206,22 @@ void loop() {
       buzz.stop();
       deoverride_timer.pause();
       Signal_LED.setState(E_SignalLED::OVERRIDE, false);
-      Serial.println("Override Period Ended. Motors Re-Enabled.");
+
+      S_LOG("Override Period Ended. Motors Re-Enabled.");
     }
 
     return;
   }
 
   if (sensor.isObstacleDetected()) {
+    is_obs_found = true;
+    buzz.play(50, 100);
+
+    obst_mtr_discon.reset();
+    obst_mtr_discon.resume();
+    obst_clear.reset();
+    obst_clear.resume();
+
     mc.stop();
 
     Signal_LED.setState(E_SignalLED::GESTURE, true);
@@ -209,62 +229,116 @@ void loop() {
     Signal_LED.setState(E_SignalLED::LOWBAT, true);
     Signal_LED.setState(E_SignalLED::BLUETOOTH, true);
 
-    // Serial.println("Obstacle Detected! Stopping Motors.");
-
-    // return;
+    S_LOG("Obstacle Detected! Stopping Motors.");
   } else {
     Signal_LED.offAll();
   }
 
-  // //******* For Testing *******//
+  if (is_obs_found) {
+    // Stop the motor quickly then disconnect so we can
+    // Move it freely
+    if (obst_mtr_discon.marked()) {
+      obst_mtr_discon.pause();
+      mc.disconnect();
+    }
 
-  // const uint16_t left_right_value = analogRead(LEFT_RIGHT_PIN);
-  // const uint16_t front_back_value = analogRead(FRONT_BACK_PIN);
-  // const int __y = (int)left_right_value - 512;
-  // const int __x = (int)front_back_value - 512;
+    if (obst_clear.marked()) {
+      obst_clear.pause();
+      is_obs_found = false;
+    }
 
-  // int x = 0;
-  // int y = 0;
+    return;
+  }
 
-  // if (__x <= -510) {
-  //   x = -1;
-  // } else if (__x >= 510) {
-  //   x = 1;
-  // }
+  if (last_remote_data != remote_data) {
+    Serial.print(remote_data, BIN);
+    Serial.print(" : ");
+    Serial.println(remote_data, HEX);
+    last_remote_data = remote_data;
+  }
 
-  // if (__y <= -510) {
-  //   y = -1;
-  // } else if (__y >= 510) {
-  //   y = 1;
-  // }
+  switch (remote_data) {
+    case 0x1:  // Forward
+      mc.forward();
+      break;
 
-  // if (y == 1) {
-  //   if (x == 1) {
-  //     mc.right();
-  //   } else if (x == -1) {
-  //     mc.left();
-  //   } else {
-  //     mc.hard_right();
-  //   }
-  // } else if (y == -1) {
-  //   if (x == -1) {
-  //     mc.right();
-  //   } else if (x == 1) {
-  //     mc.left();
-  //   } else {
-  //     mc.hard_left();
-  //   }
-  // } else {
-  //   if (x == 1) {
-  //     mc.forward();
-  //   } else if (x == -1) {
-  //     mc.reverse();
-  //   }
-  // }
+    case 0x2:  // Reverse
+      mc.reverse();
+      break;
 
-  // if (y == 0 && x == 0) {
-  //   mc.stop();
-  // }
+    case 0x8:  // Left
+      mc.hard_left();
+      break;
+
+    case 0x4:  // Right
+      mc.hard_right();
+      break;
+
+    case 0x9:  // Forward - Left
+      mc.left();
+      break;
+
+    case 0x5:  // Forward - Right
+      mc.right();
+      break;
+
+    case 0xA:  // Backward - Left
+      mc.r_left();
+      break;
+
+    case 0x6:  // Backward - Right
+      mc.r_right();
+      break;
+
+    default:
+      mc.stop();
+  }
+
+  // Logging purposes
+  switch (mc.state()) {
+    case ControllerState::FORWARD:
+      S_LOG("Motor: Forward");
+      break;
+
+    case ControllerState::REVERSE:
+      S_LOG("Motor: Reverse");
+      break;
+
+    case ControllerState::HARD_LEFT:
+      S_LOG("Motor: Rotate Left");
+      break;
+
+    case ControllerState::HARD_RIGHT:
+      S_LOG("Motor: Rotate Right");
+      break;
+
+    case ControllerState::IDLE:
+      S_LOG("Motor: Idle");
+      break;
+
+    case ControllerState::LEFT:
+      S_LOG("Motor: Left");
+      break;
+
+    case ControllerState::R_LEFT:
+      S_LOG("Motor: Reverse Left");
+      break;
+
+    case ControllerState::R_RIGHT:
+      S_LOG("Motor: Right");
+      break;
+
+    case ControllerState::RIGHT:
+      S_LOG("Motor: Right");
+      break;
+
+    case ControllerState::STOP:
+      S_LOG("Motor: Stop");
+      break;
+
+    default:
+      break;
+  }
 
   if (mc.state() != ControllerState::IDLE &&
       mc.state() != ControllerState::STOP) {
