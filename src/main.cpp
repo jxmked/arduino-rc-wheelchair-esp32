@@ -16,6 +16,11 @@
 #include "./ir_sensor.h"
 #include "./structs.h"
 
+typedef void (Controller::*MotorFunc)();
+
+static void logging_motor_data();
+void S_LOG(String value);
+
 SignalLED Signal_LED({
     .pin_gesture = LED_BLUE,
     .pin_override = LED_RED,
@@ -48,15 +53,6 @@ static BLEAdvertisedDevice* selected_device;
 
 static BLEUUID SERVICE_UUID_B(SERVICE_UUID);
 static BLEUUID CHARACTERISTIC_UUID_B(CHARACTERISTIC_UUID);
-
-void S_LOG(String value) {
-  static String last_string;
-
-  if (last_string != value) {
-    Serial.println(value);
-    last_string = value;
-  }
-}
 
 static void notifyCallback(BLERemoteCharacteristic* ret_rem_chartc,
                            uint8_t* data, size_t length, bool is_notify) {
@@ -114,6 +110,8 @@ bool connectToServer() {
   return true;
 }
 
+MotorFunc motor_action[11] = {nullptr};
+
 void setup() {
   Serial.begin(115200);
 
@@ -147,7 +145,17 @@ void setup() {
   boot_anim.begin();
   btn_override.begin();
   deoverride_timer.pause();
+
   mc.begin();
+
+  motor_action[0x1] = &Controller::forward;
+  motor_action[0x2] = &Controller::reverse;
+  motor_action[0x4] = &Controller::hard_right;
+  motor_action[0x5] = &Controller::right;
+  motor_action[0x6] = &Controller::r_right;
+  motor_action[0x8] = &Controller::hard_left;
+  motor_action[0x9] = &Controller::left;
+  motor_action[0xA] = &Controller::r_left;
 }
 
 void loop() {
@@ -237,8 +245,7 @@ void loop() {
   }
 
   if (is_obs_found) {
-    // Stop the motor quickly then disconnect so we can
-    // Move it freely
+    // Stop the motor quickly then disconnect to unlock the motors
     if (obst_mtr_discon.marked()) {
       obst_mtr_discon.pause();
       mc.disconnect();
@@ -261,91 +268,114 @@ void loop() {
     last_remote_data = remote_data;
   }
 
-  switch (remote_data) {
-    case 0x1:  // Forward
-      mc.forward();
-      break;
-
-    case 0x2:  // Reverse
-      mc.reverse();
-      break;
-
-    case 0x8:  // Left
-      mc.hard_left();
-      break;
-
-    case 0x4:  // Right
-      mc.hard_right();
-      break;
-
-    case 0x9:  // Forward - Left
-      mc.left();
-      break;
-
-    case 0x5:  // Forward - Right
-      mc.right();
-      break;
-
-    case 0xA:  // Backward - Left
-      mc.r_left();
-      break;
-
-    case 0x6:  // Backward - Right
-      mc.r_right();
-      break;
-
-    default:
-      mc.stop();
+  if (remote_data > 0 && remote_data <= 0xA &&
+      motor_action[remote_data] != nullptr) {
+    (mc.*motor_action[remote_data])();
+  } else {
+    mc.stop();
   }
 
-  // Logging purposes
-  switch (mc.state()) {
-    case ControllerState::FORWARD:
-      S_LOG("Motor: Forward");
-      break;
+  logging_motor_data();
 
-    case ControllerState::REVERSE:
-      S_LOG("Motor: Reverse");
-      break;
+  // switch (remote_data) {
+  //   case 0x1:  // Forward
+  //     mc.forward();
+  //     break;
 
-    case ControllerState::HARD_LEFT:
-      S_LOG("Motor: Rotate Left");
-      break;
+  //   case 0x2:  // Reverse
+  //     mc.reverse();
+  //     break;
 
-    case ControllerState::HARD_RIGHT:
-      S_LOG("Motor: Rotate Right");
-      break;
+  //   case 0x8:  // Left
+  //     mc.hard_left();
+  //     break;
 
-    case ControllerState::IDLE:
-      S_LOG("Motor: Idle");
-      break;
+  //   case 0x4:  // Right
+  //     mc.hard_right();
+  //     break;
 
-    case ControllerState::LEFT:
-      S_LOG("Motor: Left");
-      break;
+  //   case 0x9:  // Forward - Left
+  //     mc.left();
+  //     break;
 
-    case ControllerState::R_LEFT:
-      S_LOG("Motor: Reverse Left");
-      break;
+  //   case 0x5:  // Forward - Right
+  //     mc.right();
+  //     break;
 
-    case ControllerState::R_RIGHT:
-      S_LOG("Motor: Right");
-      break;
+  //   case 0xA:  // Backward - Left
+  //     mc.r_left();
+  //     break;
 
-    case ControllerState::RIGHT:
-      S_LOG("Motor: Right");
-      break;
+  //   case 0x6:  // Backward - Right
+  //     mc.r_right();
+  //     break;
 
-    case ControllerState::STOP:
-      S_LOG("Motor: Stop");
-      break;
-
-    default:
-      break;
-  }
+  //   default:
+  //     mc.stop();
+  // }
 
   if (mc.state() != ControllerState::IDLE &&
       mc.state() != ControllerState::STOP) {
     Signal_LED.setState(E_SignalLED::GESTURE, true);
+  }
+}
+
+static void logging_motor_data() {
+  // Logging purposes
+
+  // This function tell us what we have receive and what controller does
+
+  switch (mc.state()) {
+    case ControllerState::FORWARD:
+      S_LOG("State | Motor: " + String(remote_data, BIN) + " | Forward");
+      break;
+
+    case ControllerState::REVERSE:
+      S_LOG("State | Motor: " + String(remote_data, BIN) + " | Reverse");
+      break;
+
+    case ControllerState::HARD_LEFT:
+      S_LOG("State | Motor: " + String(remote_data, BIN) + " | Rotate Left");
+      break;
+
+    case ControllerState::HARD_RIGHT:
+      S_LOG("State | Motor: " + String(remote_data, BIN) + " | Rotate Right");
+      break;
+
+    case ControllerState::IDLE:
+      S_LOG("State | Motor: " + String(remote_data, BIN) + " | Idle");
+      break;
+
+    case ControllerState::LEFT:
+      S_LOG("State | Motor: " + String(remote_data, BIN) + " | Left");
+      break;
+
+    case ControllerState::R_LEFT:
+      S_LOG("State | Motor: " + String(remote_data, BIN) + " | Reverse Left");
+      break;
+
+    case ControllerState::R_RIGHT:
+      S_LOG("State | Motor: " + String(remote_data, BIN) + " | Reverse Right");
+      break;
+
+    case ControllerState::RIGHT:
+      S_LOG("State | Motor: " + String(remote_data, BIN) + " | Right");
+      break;
+
+    case ControllerState::STOP:
+      S_LOG("State | Motor: " + String(remote_data, BIN) + " | Stop");
+      break;
+
+    default:
+      break;
+  }
+}
+
+void S_LOG(String value) {
+  static String last_string;
+
+  if (last_string != value) {
+    Serial.println(value);
+    last_string = value;
   }
 }

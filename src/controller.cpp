@@ -88,4 +88,10 @@ void Controller::override() {
 void Controller::update() {
   M1.update();
   M2.update();
+
+  if (!M1.is_ready() && !M2.is_ready()) {
+    stop();
+    M1.update();
+    M2.update();
+  }
 }
