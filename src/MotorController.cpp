@@ -14,6 +14,7 @@ MotorController::MotorController(uint16_t R_PWM, uint16_t L_PWM, uint16_t EN,
       __is_ready(false) {
   pinMode(R_PWM, OUTPUT);
   pinMode(L_PWM, OUTPUT);
+
   pinMode(EN, OUTPUT);
 
 #if USE_MOTOR_DRIVER
@@ -25,7 +26,7 @@ MotorController::MotorController(uint16_t R_PWM, uint16_t L_PWM, uint16_t EN,
 MOTOR_PROPS MotorController::sense_motor(uint16_t pin) {
   // Get motor data (Current and Voltage) from pin R_IS and L_IS
   MOTOR_PROPS values;
-  uint16_t adc = analogRead(pin);                                 // 0–1023
+  uint16_t adc = analogRead(pin);                            // 0–1023
   values.voltage = (adc * ADC_REF) / ((1 << ADC_BITS) - 1);  // convert to volts
   values.current = values.voltage * IS_RATIO;  // I_L = V_IS × 8500
   return values;
@@ -54,75 +55,131 @@ void MotorController::update() {
   } else {
     __is_ready = true;
   }
+
+  if (!__is_ready) return kill();
+
+  switch (__current_state) {
+    case MotorState::FORWARD:
+      digitalWrite(pins.EN, HIGH);
+
+#if USE_MOTOR_PWM_CHANNEL
+      analogWrite(pins.R_PWM, MOTOR_MAX_POWER);
+      analogWrite(pins.L_PWM, 0);
+#else
+      digitalWrite(pins.L_PWM, LOW);
+      digitalWrite(pins.R_PWM, HIGH);
+#endif
+      break;
+
+    case MotorState::REVERSE:
+      digitalWrite(pins.EN, HIGH);
+
+#if USE_MOTOR_PWM_CHANNEL
+      analogWrite(pins.R_PWM, 0);
+      analogWrite(pins.L_PWM, MOTOR_MAX_POWER);
+#else
+      digitalWrite(pins.R_PWM, LOW);
+      digitalWrite(pins.L_PWM, HIGH);
+#endif
+
+      break;
+
+    case MotorState::STOP:
+      digitalWrite(pins.EN, HIGH);
+
+      analogWrite(pins.R_PWM, 0);
+      analogWrite(pins.L_PWM, 0);
+
+      // we're having heat issue from the driver
+      // analogWrite(pins.R_PWM, 0);
+      // analogWrite(pins.L_PWM, 0);
+      break;
+
+    case MotorState::DISCONNECT:
+      digitalWrite(pins.EN, LOW);
+
+      analogWrite(pins.R_PWM, 0);
+      analogWrite(pins.L_PWM, 0);
+      break;
+  }
 #else
   // We don't have any sensing for motor status
   __is_ready = true;
+
+  switch (__current_state) {
+    case MotorState::FORWARD:
+      digitalWrite(pins.EN, HIGH);
+
+      digitalWrite(pins.L_PWM, LOW);
+      digitalWrite(pins.R_PWM, HIGH);
+      break;
+
+    case MotorState::REVERSE:
+      digitalWrite(pins.EN, HIGH);
+
+      digitalWrite(pins.R_PWM, LOW);
+      digitalWrite(pins.L_PWM, HIGH);
+      break;
+
+    case MotorState::STOP:
+      digitalWrite(pins.EN, HIGH);
+
+      digitalWrite(pins.R_PWM, LOW);
+      digitalWrite(pins.L_PWM, LOW);
+      break;
+
+    case MotorState::DISCONNECT:
+      digitalWrite(pins.EN, LOW);
+
+      digitalWrite(pins.R_PWM, LOW);
+      digitalWrite(pins.L_PWM, LOW);
+      break;
+  }
 #endif
+
+  ///////////////////
+
+  // switch (__current_state) {
+  //   case MotorState::FORWARD:
+  //     Serial.println("forward");
+  //     break;
+
+  //   case MotorState::REVERSE:
+  //     Serial.println("reverse");
+  //     break;
+
+  //   case MotorState::STOP:
+  //     Serial.println("stop");
+  //     break;
+
+  //   case MotorState::DISCONNECT:
+  //     Serial.println("disconnect");
+  //     break;
+  // }
 }
 
-void MotorController::disconnect() { digitalWrite(pins.EN, LOW); }
+void MotorController::disconnect() { __current_state = MotorState::DISCONNECT; }
 
-void MotorController::stop() {
-  digitalWrite(pins.EN, HIGH);
+void MotorController::stop() { __current_state = MotorState::STOP; }
 
-#if USE_MOTOR_DRIVER
+void MotorController::forward() { __current_state = MotorState::FORWARD; }
 
-  digitalWrite(pins.R_PWM, LOW);
-  digitalWrite(pins.L_PWM, LOW);
-
-  // we're having heat issue from the driver
-  // analogWrite(pins.R_PWM, 0);
-  // analogWrite(pins.L_PWM, 0);
-#else
-  digitalWrite(pins.R_PWM, LOW);
-  digitalWrite(pins.L_PWM, LOW);
-#endif
-
-  __current_state = MotorState::STOP;
-}
-
-void MotorController::forward() {
-  if (!__is_ready) return stop();
-  if (__current_state == MotorState::FORWARD) return;
-
-  digitalWrite(pins.EN, HIGH);
-
-#if USE_MOTOR_DRIVER
-
-  digitalWrite(pins.L_PWM, LOW);
-  digitalWrite(pins.R_PWM, HIGH);
-
-  // we're having heat issue from the driver
-  // analogWrite(pins.R_PWM, MOTOR_MAX_POWER);
-  // analogWrite(pins.L_PWM, 0);
-#else
-  digitalWrite(pins.L_PWM, LOW);
-  digitalWrite(pins.R_PWM, HIGH);
-#endif
-  __current_state = MotorState::FORWARD;
-}
-
-void MotorController::reverse() {
-  if (!__is_ready) return stop();
-  if (__current_state == MotorState::REVERSE) return;
-
-  digitalWrite(pins.EN, HIGH);
-
-#if USE_MOTOR_DRIVER
-
-  digitalWrite(pins.R_PWM, LOW);
-  digitalWrite(pins.L_PWM, HIGH);
-
-  // we're having heat issue from the driver
-  // analogWrite(pins.R_PWM, 0);
-  // analogWrite(pins.L_PWM, MOTOR_MAX_POWER);
-#else
-  digitalWrite(pins.R_PWM, LOW);
-  digitalWrite(pins.L_PWM, HIGH);
-#endif
-  __current_state = MotorState::REVERSE;
-}
+void MotorController::reverse() { __current_state = MotorState::REVERSE; }
 
 bool MotorController::is_ready() { return __is_ready; }
 
 MotorState MotorController::state() { return __current_state; }
+
+void MotorController::kill() {
+  digitalWrite(pins.EN, LOW);
+
+#if USE_MOTOR_PWM_CHANNEL
+  analogWrite(pins.L_PWM, 0);
+  analogWrite(pins.R_PWM, 0);
+#else
+  digitalWrite(pins.R_PWM, LOW);
+  digitalWrite(pins.L_PWM, LOW);
+#endif
+
+  disconnect();
+}

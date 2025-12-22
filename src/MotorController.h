@@ -16,6 +16,7 @@ class MotorController {
   void reverse();
   bool is_ready();
   MotorState state();
+  void kill();
 
  private:
   MOTOR_CONTROLLER_PINS pins;

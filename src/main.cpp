@@ -188,6 +188,8 @@ void loop() {
     Signal_LED.offAll();
     mc.override();
 
+    mc.update();
+
     Signal_LED.setState(E_SignalLED::OVERRIDE, true);
     S_LOG("Override Button Pressed! Motors Disconnected.");
 
@@ -246,6 +248,8 @@ void loop() {
       obst_clear.pause();
       is_obs_found = false;
     }
+
+    mc.update();
 
     return;
   }
