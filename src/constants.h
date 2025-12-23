@@ -1,11 +1,15 @@
 #ifndef constant_h
 #define constant_h
 
+// May not be accurate to real measurement
 #define OBSTACLE_DISTANCE_THRESHOLD 69.0  // cm
+
+#define MOTOR_MAX_POWER 90  // 0 = No Power, 255 = Max Power (0-255)
 
 /** PINS **/
 // Pin  --- conn
-// All sense pin from esp32 is for input only. See the Esp32 Devtoolkit pinout
+// All sense pin from esp32 is for input only. See the Esp32 Devtoolkit WROOM-32
+// pinout
 #define M1_L_IS 34  // Motor 1 Left Sense
 #define M1_LPWM 25  // Motor 1 Left PWM
 
@@ -34,10 +38,8 @@
 #define OVERRIDE_PUSH_BTN 21  // OVERRIDE PUSH BUTTON
 /** END PINS **/
 
-#define MOTOR_MAX_POWER 70 // 0 = No Power, 255 = Max Power (0-255)
-
-#define USE_MOTOR_DRIVER 0  // 1 = Motor driver, 0 = relay  (0, 1)
-#define USE_MOTOR_PWM_CHANNEL 1 // Use PWM
+#define USE_MOTOR_DRIVER 1       // 1 = Motor driver, 0 = relay  (0, 1)
+#define USE_MOTOR_PWM_CHANNEL 1  // Use PWM
 
 // Sense restriction and default faulty protection
 #define RSENSE 1000.0           // 1 kΩ resistor
@@ -52,7 +54,7 @@
 #define EMPIRICAL_CALIB 61.573
 #define VOLTAGE_DROP -1.1068
 #define SAMPLING_SIZE \
-  5  // Number of samples for noise reduction.
+  5  // Number of samples for noise reduction. \
      // The higher, the smoother but less responsive
 //
 

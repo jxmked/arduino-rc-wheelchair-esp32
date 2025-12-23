@@ -19,9 +19,9 @@ static void logging_motor_data();
 void S_LOG(String value);
 
 SignalLED Signal_LED({
-    .pin_gesture = LED_BLUE,
+    .pin_gesture = LED_YELLOW,
     .pin_override = LED_RED,
-    .pin_lowbat = LED_YELLOW,
+    .pin_lowbat = LED_BLUE,
     .pin_bt = LED_GREEN,
 });
 
@@ -166,9 +166,9 @@ void setup() {
   deoverride_timer.pause();
 
   M1.stop();
-  M1.disconnect();
+  M1.disconnect(false);
   M2.stop();
-  M2.disconnect();
+  M2.disconnect(false);
 }
 
 void loop() {
@@ -193,21 +193,22 @@ void loop() {
     return;
   }
 
-  Signal_LED.update();
-
   if (!is_connected) {
     M1.stop();
     M2.stop();
-    M1.disconnect();
-    M2.disconnect();
+    M1.disconnect(false);
+    M2.disconnect(false);
 
+    buzz.stop();
     S_LOG("Bluetooth disconnected");
 
     Signal_LED.setState(E_SignalLED::BLUETOOTH, false);
+    Signal_LED.update();
     return;
-  } else {
-    Signal_LED.setState(E_SignalLED::BLUETOOTH, true);
   }
+
+  Signal_LED.setState(E_SignalLED::BLUETOOTH, true);
+  Signal_LED.update();
 
   if (btn_override.pressed()) {
     Signal_LED.offAll();
@@ -262,21 +263,25 @@ void loop() {
   }
 
   if (is_obs_found) {
+    Signal_LED.setState(E_SignalLED::OVERRIDE, true);
+    M1.stop();
+    M2.stop();
+
     // Stop the motor quickly then disconnect to unlock the motors
     if (obst_mtr_discon.marked()) {
       obst_mtr_discon.pause();
+      M1.disconnect(false);
+      M2.disconnect(false);
     }
 
     if (obst_clear.marked()) {
       obst_clear.pause();
+      buzz.stop();
+      Signal_LED.setState(E_SignalLED::OVERRIDE, false);
+
       is_obs_found = false;
       S_LOG("Cleared");
     }
-
-    M1.stop();
-    M1.disconnect();
-    M2.stop();
-    M2.disconnect();
 
     M1.update();
     M2.update();
@@ -284,23 +289,36 @@ void loop() {
     return;
   }
 
-  M2.stop();
-  M2.disconnect();
-  if ((remote_data & 0xC0) > 0) {
-    if ((remote_data & 0x40) > 0) {
-      M2.reverse();
-    } else if ((remote_data & 0x80) > 0) {
-      M2.forward();
+  // Check if only 1 motor is active so we can multiply the power of it
+  // to able to move the wheelchair
+  float mtr_power = 0;
+  if ((remote_data & 0xF0) > 0) {
+    if ((remote_data & 0x90) == 144 || (remote_data & 0x90) == 96) {
+      mtr_power = 1.2;  // The power when running at opposite direction
+    } else {
+      mtr_power = 1;  // The power when running at the same direction
     }
+  } else {
+    mtr_power = 1.4;  // The power when one 1 motor is running
   }
 
   M1.stop();
-  M1.disconnect();
+  M1.disconnect((remote_data & 0x30) > 0);
+  if ((remote_data & 0xC0) > 0) {
+    if ((remote_data & 0x40) > 0) {
+      M1.reverse(mtr_power);
+    } else if ((remote_data & 0x80) > 0) {
+      M1.forward(mtr_power);
+    }
+  }
+
+  M2.stop();
+  M2.disconnect(((remote_data & 0xC0) > 0));
   if ((remote_data & 0x30) > 0) {
     if ((remote_data & 0x10) > 0) {
-      M1.reverse();
+      M2.reverse(mtr_power);
     } else if ((remote_data & 0x20) > 0) {
-      M1.forward();
+      M2.forward(mtr_power);
     }
   }
 

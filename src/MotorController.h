@@ -10,10 +10,10 @@ class MotorController {
                   uint16_t L_IS);
   MOTOR_PROPS sense_motor(uint16_t pin);
   void update();
-  void disconnect();
+  void disconnect(bool keep_on);
   void stop();
-  void forward();
-  void reverse();
+  void forward(float power);
+  void reverse(float power);
   bool is_ready();
   MotorState state();
   void kill();
@@ -22,6 +22,8 @@ class MotorController {
   MOTOR_CONTROLLER_PINS pins;
   MotorState __current_state;
   bool __is_ready;
+  bool __keep_on;
+  float __power;
 };
 
 #endif

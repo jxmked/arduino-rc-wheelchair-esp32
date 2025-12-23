@@ -7,11 +7,19 @@
 #include "constants.h"
 #include "structs.h"
 
+/**
+ * Looking for motor power?
+ * Goto:
+ * "constants.h" -> MOTOR_MAX_POWER
+ * */
+
 MotorController::MotorController(uint16_t R_PWM, uint16_t L_PWM, uint16_t EN,
                                  uint16_t R_IS, uint16_t L_IS)
     : pins{R_PWM, L_PWM, EN, R_IS, L_IS},
       __current_state(MotorState::STOP),
-      __is_ready(false) {
+      __is_ready(false),
+      __keep_on(false),
+      __power(1.0) {
   pinMode(R_PWM, OUTPUT);
   pinMode(L_PWM, OUTPUT);
 
@@ -38,8 +46,8 @@ void MotorController::update() {
   MOTOR_PROPS res_l = sense_motor(pins.L_IS);
 
   // Only one IS pin is valid depending on motor direction
-  float max_current = max(res_r.current, res_l.current);
-  float max_voltage = max(res_r.voltage, res_l.voltage);
+  const float max_current = max(res_r.current, res_l.current);
+  const float max_voltage = max(res_r.voltage, res_l.voltage);
 
   // Serial.print("C & V: ");
   // Serial.print(max_current);
@@ -57,13 +65,16 @@ void MotorController::update() {
   }
 
   if (!__is_ready) return kill();
+  const float use_power_f =
+      constrain(__power * static_cast<float>((MOTOR_MAX_POWER)), 0, 255);
+  const int use_power = static_cast<int>(use_power_f);
 
   switch (__current_state) {
     case MotorState::FORWARD:
       digitalWrite(pins.EN, HIGH);
 
 #if USE_MOTOR_PWM_CHANNEL
-      analogWrite(pins.R_PWM, MOTOR_MAX_POWER);
+      analogWrite(pins.R_PWM, use_power);
       analogWrite(pins.L_PWM, 0);
 #else
       digitalWrite(pins.L_PWM, LOW);
@@ -76,7 +87,7 @@ void MotorController::update() {
 
 #if USE_MOTOR_PWM_CHANNEL
       analogWrite(pins.R_PWM, 0);
-      analogWrite(pins.L_PWM, MOTOR_MAX_POWER);
+      analogWrite(pins.L_PWM, use_power);
 #else
       digitalWrite(pins.R_PWM, LOW);
       digitalWrite(pins.L_PWM, HIGH);
@@ -96,7 +107,7 @@ void MotorController::update() {
       break;
 
     case MotorState::DISCONNECT:
-      digitalWrite(pins.EN, LOW);
+      digitalWrite(pins.EN, __keep_on ? HIGH : LOW);
 
       analogWrite(pins.R_PWM, 0);
       analogWrite(pins.L_PWM, 0);
@@ -129,7 +140,7 @@ void MotorController::update() {
       break;
 
     case MotorState::DISCONNECT:
-      digitalWrite(pins.EN, LOW);
+      digitalWrite(pins.EN, __keep_on ? HIGH : LOW);
 
       digitalWrite(pins.R_PWM, LOW);
       digitalWrite(pins.L_PWM, LOW);
@@ -158,13 +169,22 @@ void MotorController::update() {
   // }
 }
 
-void MotorController::disconnect() { __current_state = MotorState::DISCONNECT; }
+void MotorController::disconnect(bool keep_on) {
+  __current_state = MotorState::DISCONNECT;
+  __keep_on = keep_on;
+}
 
 void MotorController::stop() { __current_state = MotorState::STOP; }
 
-void MotorController::forward() { __current_state = MotorState::FORWARD; }
+void MotorController::forward(float power) {
+  __power = power;
+  __current_state = MotorState::FORWARD;
+}
 
-void MotorController::reverse() { __current_state = MotorState::REVERSE; }
+void MotorController::reverse(float power) {
+  __power = power;
+  __current_state = MotorState::REVERSE;
+}
 
 bool MotorController::is_ready() { return __is_ready; }
 
@@ -181,5 +201,5 @@ void MotorController::kill() {
   digitalWrite(pins.L_PWM, LOW);
 #endif
 
-  disconnect();
+  disconnect(false);
 }
