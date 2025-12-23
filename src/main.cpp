@@ -44,6 +44,11 @@ bool is_obs_found = false;
 bool is_override = false;
 bool is_connected = false;
 
+// This variable will be use to smooth-out the motor
+// initial acceleration. (Will be effective if the motor is set to PWM)
+unsigned long mtr_smooth_accelrt_start = 0;
+unsigned long mtr_smooth_accelrt_end = 0;
+
 unsigned long last_data_ms = 0;
 volatile static uint8_t remote_data;
 volatile static uint8_t last_remote_data;
@@ -289,37 +294,64 @@ void loop() {
     return;
   }
 
+  float mtr_smooth_accelrt_start = 0;
+  bool mtr_just_started = false;
+
   // Check if only 1 motor is active so we can multiply the power of it
   // to able to move the wheelchair
   float mtr_power = 0;
   if ((remote_data & 0xF0) > 0) {
     if ((remote_data & 0x90) == 144 || (remote_data & 0x90) == 96) {
       mtr_power = 1.2;  // The power when running at opposite direction
+    } else if ((remote_data & 0xA0) == 10 || (remote_data & 0x50) == 80) {
+      mtr_power = 1.0;  // The power when running at the same direction
     } else {
-      mtr_power = 1;  // The power when running at the same direction
+      mtr_power = 1.4;  // The power when one 1 motor is running
+    }
+
+    // This will smooth the motor power.
+    // Btw, this is linear.
+    if (!mtr_just_started) {
+      mtr_smooth_accelrt_start =
+          millis() - static_cast<float>((MOTOR_ACCELERATION_TIME)) *
+                         static_cast<float>((MOTOR_INTIAL_ACCELERATION));
+      mtr_just_started = true;
+    }
+
+    const float diff =
+        static_cast<float>((millis() - mtr_smooth_accelrt_start)) /
+        static_cast<float>((MOTOR_ACCELERATION_TIME));
+
+    const float final_mtr_power = mtr_power * diff;
+
+    // If the final motor power is higher than
+    // motor power we need, prevent it.
+    if (!(final_mtr_power >= mtr_power)) {
+      mtr_power = final_mtr_power;
+    }
+    /////////////////////////////////////
+
+    M1.stop();
+    M1.disconnect((remote_data & 0x30) > 0);
+    if ((remote_data & 0xC0) > 0) {
+      if ((remote_data & 0x40) > 0) {
+        M1.reverse(mtr_power);
+      } else if ((remote_data & 0x80) > 0) {
+        M1.forward(mtr_power);
+      }
+    }
+
+    M2.stop();
+    M2.disconnect(((remote_data & 0xC0) > 0));
+    if ((remote_data & 0x30) > 0) {
+      if ((remote_data & 0x10) > 0) {
+        M2.reverse(mtr_power);
+      } else if ((remote_data & 0x20) > 0) {
+        M2.forward(mtr_power);
+      }
     }
   } else {
-    mtr_power = 1.4;  // The power when one 1 motor is running
-  }
-
-  M1.stop();
-  M1.disconnect((remote_data & 0x30) > 0);
-  if ((remote_data & 0xC0) > 0) {
-    if ((remote_data & 0x40) > 0) {
-      M1.reverse(mtr_power);
-    } else if ((remote_data & 0x80) > 0) {
-      M1.forward(mtr_power);
-    }
-  }
-
-  M2.stop();
-  M2.disconnect(((remote_data & 0xC0) > 0));
-  if ((remote_data & 0x30) > 0) {
-    if ((remote_data & 0x10) > 0) {
-      M2.reverse(mtr_power);
-    } else if ((remote_data & 0x20) > 0) {
-      M2.forward(mtr_power);
-    }
+    mtr_just_started = false;
   }
 
   logging_motor_data();

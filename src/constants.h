@@ -6,6 +6,12 @@
 
 #define MOTOR_MAX_POWER 90  // 0 = No Power, 255 = Max Power (0-255)
 
+// Slowly power on the motor so we don't stress the motor driver
+#define MOTOR_ACCELERATION_TIME 3000  // ms
+
+// Instead of start from 0, we start from this percetage
+#define MOTOR_INTIAL_ACCELERATION 0.3 // Percentage
+
 /** PINS **/
 // Pin  --- conn
 // All sense pin from esp32 is for input only. See the Esp32 Devtoolkit WROOM-32
