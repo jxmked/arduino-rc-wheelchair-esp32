@@ -12,11 +12,8 @@
 #include "./TimeInterval.h"
 #include "./boot.h"
 #include "./constants.h"
-#include "./controller.h"
 #include "./ir_sensor.h"
 #include "./structs.h"
-
-typedef void (Controller::*MotorFunc)();
 
 static void logging_motor_data();
 void S_LOG(String value);
@@ -28,11 +25,14 @@ SignalLED Signal_LED({
     .pin_bt = LED_GREEN,
 });
 
+int motor_action[11] = {};
+
 Buzzer buzz(BUZZER_PIN);
 Button btn_override(OVERRIDE_PUSH_BTN);
 IRSensor sensor(IR_SENSOR_INPUT);
 
-Controller mc;
+MotorController M1(M1_RPWM, M1_LPWM, MOTOR_ENABLE_FLAG, M1_R_IS, M1_L_IS);
+MotorController M2(M2_RPWM, M2_LPWM, MOTOR_ENABLE_FLAG, M2_R_IS, M2_L_IS);
 
 Boot boot_anim;
 
@@ -56,7 +56,13 @@ static BLEUUID CHARACTERISTIC_UUID_B(CHARACTERISTIC_UUID);
 
 static void notifyCallback(BLERemoteCharacteristic* ret_rem_chartc,
                            uint8_t* data, size_t length, bool is_notify) {
+  // Since, our remote_data is an 8 bit, we can use the
+  // rest of it for actual motor actions.
+  // We need first to mask the response so we don't
+  // mess with something we don't need
   remote_data = data[0] & 0x0F;
+  remote_data |= motor_action[remote_data] << 4;
+
   last_data_ms = millis();
 }
 
@@ -110,8 +116,6 @@ bool connectToServer() {
   return true;
 }
 
-MotorFunc motor_action[11] = {nullptr};
-
 void setup() {
   Serial.begin(115200);
 
@@ -142,20 +146,29 @@ void setup() {
     ESP.restart();
   }
 
+  // Motor actions - Structure
+  // 2 bits for each motor
+  // 10 = forward
+  // 01 = reverse
+  // 00 = stop
+  // Motor 1 - Motor 2
+  motor_action[0x1] = 0b1010;  // forward
+  motor_action[0x2] = 0b0101;  // reverse;
+  motor_action[0x4] = 0b1001;  // rotate_right;
+  motor_action[0x8] = 0b0110;  // rotate_left;
+  motor_action[0x5] = 0b1000;  // right;
+  motor_action[0x9] = 0b0010;  // left;
+  motor_action[0x6] = 0b0100;  // reverse right;
+  motor_action[0xA] = 0b0001;  // reverse left;
+
   boot_anim.begin();
   btn_override.begin();
   deoverride_timer.pause();
 
-  mc.begin();
-
-  motor_action[0x1] = &Controller::forward;
-  motor_action[0x2] = &Controller::reverse;
-  motor_action[0x4] = &Controller::hard_right;
-  motor_action[0x5] = &Controller::right;
-  motor_action[0x6] = &Controller::r_right;
-  motor_action[0x8] = &Controller::hard_left;
-  motor_action[0x9] = &Controller::left;
-  motor_action[0xA] = &Controller::r_left;
+  M1.stop();
+  M1.disconnect();
+  M2.stop();
+  M2.disconnect();
 }
 
 void loop() {
@@ -168,21 +181,25 @@ void loop() {
 
   // Priority to obstacle detection
   sensor.update();
-  mc.update();
+
+  M1.update();
+  M2.update();
 
   buzz.loop();
 
   if (boot_anim.is_animating()) {
     boot_anim.loop();
-    mc.disconnect();
+
     return;
   }
 
   Signal_LED.update();
 
   if (!is_connected) {
-    mc.stop();
-    mc.disconnect();
+    M1.stop();
+    M2.stop();
+    M1.disconnect();
+    M2.disconnect();
 
     S_LOG("Bluetooth disconnected");
 
@@ -194,9 +211,8 @@ void loop() {
 
   if (btn_override.pressed()) {
     Signal_LED.offAll();
-    mc.override();
-
-    mc.update();
+    M1.stop();
+    M2.stop();
 
     Signal_LED.setState(E_SignalLED::OVERRIDE, true);
     S_LOG("Override Button Pressed! Motors Disconnected.");
@@ -232,7 +248,8 @@ void loop() {
     obst_clear.reset();
     obst_clear.resume();
 
-    mc.stop();
+    M1.stop();
+    M2.stop();
 
     Signal_LED.setState(E_SignalLED::GESTURE, true);
     Signal_LED.setState(E_SignalLED::OVERRIDE, true);
@@ -248,74 +265,51 @@ void loop() {
     // Stop the motor quickly then disconnect to unlock the motors
     if (obst_mtr_discon.marked()) {
       obst_mtr_discon.pause();
-      mc.disconnect();
     }
 
     if (obst_clear.marked()) {
       obst_clear.pause();
       is_obs_found = false;
+      S_LOG("Cleared");
     }
 
-    mc.update();
+    M1.stop();
+    M1.disconnect();
+    M2.stop();
+    M2.disconnect();
+
+    M1.update();
+    M2.update();
 
     return;
   }
 
-  if (last_remote_data != remote_data) {
-    Serial.print(remote_data, BIN);
-    Serial.print(" : ");
-    Serial.println(remote_data, HEX);
-    last_remote_data = remote_data;
+  M2.stop();
+  M2.disconnect();
+  if ((remote_data & 0xC0) > 0) {
+    if ((remote_data & 0x40) > 0) {
+      M2.reverse();
+    } else if ((remote_data & 0x80) > 0) {
+      M2.forward();
+    }
   }
 
-  if (remote_data > 0 && remote_data <= 0xA &&
-      motor_action[remote_data] != nullptr) {
-    (mc.*motor_action[remote_data])();
-  } else {
-    mc.stop();
+  M1.stop();
+  M1.disconnect();
+  if ((remote_data & 0x30) > 0) {
+    if ((remote_data & 0x10) > 0) {
+      M1.reverse();
+    } else if ((remote_data & 0x20) > 0) {
+      M1.forward();
+    }
   }
 
   logging_motor_data();
 
-  // switch (remote_data) {
-  //   case 0x1:  // Forward
-  //     mc.forward();
-  //     break;
-
-  //   case 0x2:  // Reverse
-  //     mc.reverse();
-  //     break;
-
-  //   case 0x8:  // Left
-  //     mc.hard_left();
-  //     break;
-
-  //   case 0x4:  // Right
-  //     mc.hard_right();
-  //     break;
-
-  //   case 0x9:  // Forward - Left
-  //     mc.left();
-  //     break;
-
-  //   case 0x5:  // Forward - Right
-  //     mc.right();
-  //     break;
-
-  //   case 0xA:  // Backward - Left
-  //     mc.r_left();
-  //     break;
-
-  //   case 0x6:  // Backward - Right
-  //     mc.r_right();
-  //     break;
-
-  //   default:
-  //     mc.stop();
-  // }
-
-  if (mc.state() != ControllerState::IDLE &&
-      mc.state() != ControllerState::STOP) {
+  if ((M1.state() != MotorState::DISCONNECT ||
+       M1.state() != MotorState::STOP) ||
+      (M2.state() != MotorState::DISCONNECT ||
+       M2.state() != MotorState::STOP)) {
     Signal_LED.setState(E_SignalLED::GESTURE, true);
   }
 }
@@ -325,50 +319,34 @@ static void logging_motor_data() {
 
   // This function tell us what we have receive and what controller does
 
-  switch (mc.state()) {
-    case ControllerState::FORWARD:
-      S_LOG("State | Motor: " + String(remote_data, BIN) + " | Forward");
-      break;
+  String str = F("BINRPNS|M1,M2: ");
 
-    case ControllerState::REVERSE:
-      S_LOG("State | Motor: " + String(remote_data, BIN) + " | Reverse");
-      break;
+  str = str + String(remote_data, BIN);
+  str = str + F(" | ");
 
-    case ControllerState::HARD_LEFT:
-      S_LOG("State | Motor: " + String(remote_data, BIN) + " | Rotate Left");
-      break;
-
-    case ControllerState::HARD_RIGHT:
-      S_LOG("State | Motor: " + String(remote_data, BIN) + " | Rotate Right");
-      break;
-
-    case ControllerState::IDLE:
-      S_LOG("State | Motor: " + String(remote_data, BIN) + " | Idle");
-      break;
-
-    case ControllerState::LEFT:
-      S_LOG("State | Motor: " + String(remote_data, BIN) + " | Left");
-      break;
-
-    case ControllerState::R_LEFT:
-      S_LOG("State | Motor: " + String(remote_data, BIN) + " | Reverse Left");
-      break;
-
-    case ControllerState::R_RIGHT:
-      S_LOG("State | Motor: " + String(remote_data, BIN) + " | Reverse Right");
-      break;
-
-    case ControllerState::RIGHT:
-      S_LOG("State | Motor: " + String(remote_data, BIN) + " | Right");
-      break;
-
-    case ControllerState::STOP:
-      S_LOG("State | Motor: " + String(remote_data, BIN) + " | Stop");
-      break;
-
-    default:
-      break;
+  // Motor 1
+  if ((remote_data & 0xC0) > 0) {
+    if ((remote_data & 0x40) > 0) {
+      str = str + F("Reverse");
+    } else if ((remote_data & 0x80) > 0) {
+      str = str + F("Forward");
+    }
+  } else {
+    str = str + F("STOP");
   }
+
+  // Motor 2
+  if ((remote_data & 0x30) > 0) {
+    if ((remote_data & 0x10) > 0) {
+      str = str + F(" | Reverse");
+    } else if ((remote_data & 0x20) > 0) {
+      str = str + F(" | Forward");
+    }
+  } else {
+    str = str + F(" | STOP");
+  }
+
+  S_LOG(str);
 }
 
 void S_LOG(String value) {
