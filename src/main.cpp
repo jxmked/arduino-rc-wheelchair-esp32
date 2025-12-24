@@ -192,23 +192,35 @@ void loop() {
 
   buzz.loop();
 
+  Signal_LED.update();
+
   if (boot_anim.is_animating()) {
     boot_anim.loop();
+    buzz.stop();
 
     return;
   }
 
   if (!is_connected) {
+    /**
+     * Conenction lost??
+     *
+     * Stop motors
+     *
+     * Turn Blluetooth indicator off
+     *
+     */
     M1.stop();
     M2.stop();
     M1.disconnect(false);
     M2.disconnect(false);
 
     buzz.stop();
+
     S_LOG("Bluetooth disconnected");
 
     Signal_LED.setState(E_SignalLED::BLUETOOTH, false);
-    Signal_LED.update();
+
     return;
   }
 
@@ -216,6 +228,16 @@ void loop() {
   Signal_LED.update();
 
   if (btn_override.pressed()) {
+    /**
+     * Override button has been pressed
+     *
+     * Play buzzer sound
+     *
+     * Stop motors then release for a few seconds
+     *
+     * Turn override led on
+     *
+     */
     Signal_LED.offAll();
     M1.stop();
     M2.stop();
@@ -246,6 +268,17 @@ void loop() {
   }
 
   if (sensor.isObstacleDetected()) {
+    /**
+     * Obstacle found
+     * Play Buzzer Sound
+     *
+     * Stop motors
+     *
+     * Turn Override led on
+     *
+     * This will continue to trigger when the obstacle remains
+     * in the front. :)
+     */
     is_obs_found = true;
     buzz.play(50, 100);
 
@@ -268,6 +301,7 @@ void loop() {
   }
 
   if (is_obs_found) {
+    // Obstacle found
     Signal_LED.setState(E_SignalLED::OVERRIDE, true);
     M1.stop();
     M2.stop();
@@ -294,6 +328,8 @@ void loop() {
     return;
   }
 
+  /// MOTORS
+
   float mtr_smooth_accelrt_start = 0;
   bool mtr_just_started = false;
 
@@ -319,16 +355,14 @@ void loop() {
     }
 
     const float diff =
-        static_cast<float>((millis() - mtr_smooth_accelrt_start)) /
+        (static_cast<float>(millis()) - mtr_smooth_accelrt_start) /
         static_cast<float>((MOTOR_ACCELERATION_TIME));
 
     const float final_mtr_power = mtr_power * diff;
 
     // If the final motor power is higher than
     // motor power we need, prevent it.
-    if (!(final_mtr_power >= mtr_power)) {
-      mtr_power = final_mtr_power;
-    }
+    mtr_power = constrain(final_mtr_power, 0, mtr_power);
     /////////////////////////////////////
 
     M1.stop();

@@ -65,6 +65,8 @@ void MotorController::update() {
   }
 
   if (!__is_ready) return kill();
+
+  // Limit the power within 0-255 range 
   const float use_power_f =
       constrain(__power * static_cast<float>((MOTOR_MAX_POWER)), 0, 255);
   const int use_power = static_cast<int>(use_power_f);
