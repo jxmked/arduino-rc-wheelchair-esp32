@@ -10,7 +10,7 @@
 #define MOTOR_ACCELERATION_TIME 3000  // ms
 
 // Instead of start from 0, we start from this percetage
-#define MOTOR_INTIAL_ACCELERATION 0.3 // Percentage
+#define MOTOR_INTIAL_ACCELERATION 0.3  // Percentage
 
 /** PINS **/
 // Pin  --- conn
@@ -59,11 +59,14 @@
 //
 #define EMPIRICAL_CALIB 61.573
 #define VOLTAGE_DROP -1.1068
-#define SAMPLING_SIZE \
-  5  // Number of samples for noise reduction. \
-     // The higher, the smoother but less responsive
-//
 
+// Number of samples for noise reduction.
+// The higher, the smoother but less responsive
+#define SAMPLING_SIZE 5
+
+
+// Bluetooth UUID
+// KEEP THIS SAME TO THE REMOTE SO THEY KNOW WHAT TO FIND
 #define SERVICE_UUID "c973126d-5afe-4aec-ab49-f8ffbd14f059"
 #define CHARACTERISTIC_UUID "9ca77c0d-14a4-403d-9677-0c2bf42b8194"
 
