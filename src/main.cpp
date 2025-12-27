@@ -25,7 +25,7 @@ SignalLED Signal_LED({
     .pin_bt = LED_GREEN,
 });
 
-int motor_action[11] = {};
+uint8_t motor_action[16] = {};
 
 Buzzer buzz(BUZZER_PIN);
 Button btn_override(OVERRIDE_PUSH_BTN);
@@ -53,14 +53,15 @@ unsigned long last_data_ms = 0;
 volatile static uint8_t remote_data;
 volatile static uint8_t last_remote_data;
 
-static BLERemoteCharacteristic* rem_chartc;
-static BLEAdvertisedDevice* selected_device;
+BLERemoteCharacteristic* rem_chartc;
+BLEAdvertisedDevice* selected_device;
+BLEClient* pClient;
 
 static BLEUUID SERVICE_UUID_B(SERVICE_UUID);
 static BLEUUID CHARACTERISTIC_UUID_B(CHARACTERISTIC_UUID);
 
-static void notifyCallback(BLERemoteCharacteristic* ret_rem_chartc,
-                           uint8_t* data, size_t length, bool is_notify) {
+static void notifyCallback(BLERemoteCharacteristic* _, uint8_t* data,
+                           size_t length, bool is_notify) {
   // Since, our remote_data is an 8 bit, we can use the
   // rest of it for actual motor actions.
   // We need first to mask the response so we don't
@@ -71,54 +72,47 @@ static void notifyCallback(BLERemoteCharacteristic* ret_rem_chartc,
   last_data_ms = millis();
 }
 
-class AdvertisedDevice_cb : public BLEAdvertisedDeviceCallbacks {
-  // Begin scanning for remote
-  void onResult(BLEAdvertisedDevice advertisedDevice) {
-    if (advertisedDevice.haveServiceUUID())
-      if (advertisedDevice.isAdvertisingService(SERVICE_UUID_B)) {
-        BLEDevice::getScan()->stop();
-        selected_device = new BLEAdvertisedDevice(advertisedDevice);
-      }
+bool ble_reconnect() {
+  BLEScan* pScan = BLEDevice::getScan();
+  pScan->setActiveScan(true);
+
+  BLEScanResults devices = pScan->start(10);
+
+  for (uint8_t i = 0; i < devices.getCount(); i++) {
+    BLEAdvertisedDevice device = devices.getDevice(i);
+
+    if (device.getName() == BLE_REMOTE_NAME) {
+      selected_device = &device;
+      // Break the loop and focus on the device we wanted to connected
+      break;
+    }
   }
-};
 
-class BLEState_cb : public BLEClientCallbacks {
-  void onConnect(BLEClient* client) {
-    is_connected = true;
-    S_LOG("Connected to Server");
-  }
-
-  void onDisconnect(BLEClient* client) {
-    is_connected = false;
-    S_LOG("Disconnected from Server!");
-
-    // The program hangs when it reaches this thing.
-    // BLEDevice::getScan()->start(1);
-
-    // This is better than rescan
-    // Restart the system
+  if (selected_device == nullptr) {
     ESP.restart();
-  }
-};
-
-bool connectToServer() {
-  BLEClient* client = BLEDevice::createClient();
-  client->connect(selected_device);
-  client->setClientCallbacks(new BLEState_cb());
-
-  BLERemoteService* rem_service = client->getService(SERVICE_UUID_B);
-  if (rem_service == nullptr) return false;
-
-  rem_chartc = rem_service->getCharacteristic(CHARACTERISTIC_UUID_B);
-  if (rem_chartc == nullptr) return false;
-
-  // Listen to notification instead of pooling...
-  // Kinda better
-  if (rem_chartc->canNotify()) {
-    rem_chartc->registerForNotify(notifyCallback);
+    return false;
   }
 
-  return true;
+  pClient = BLEDevice::createClient();
+  pClient->connect(selected_device->getAddress());
+
+  if (!pClient->isConnected()) {
+    ESP.restart();
+    return false;
+  }
+
+  BLERemoteService* p_remote_se =
+      pClient->getService(selected_device->getServiceUUID());
+
+  if (p_remote_se) {
+    rem_chartc = p_remote_se->getCharacteristic(CHARACTERISTIC_UUID_B);
+    if (rem_chartc && rem_chartc->canNotify()) {
+      rem_chartc->registerForNotify(notifyCallback);
+      return true;
+    }
+  }
+
+  return false;
 }
 
 void setup() {
@@ -131,15 +125,7 @@ void setup() {
   digitalWrite(2, LOW);
 
   BLEDevice::init("esp32-wheelchair-client");
-
-  BLEScan* pBLEScan = BLEDevice::getScan();
-  pBLEScan->setAdvertisedDeviceCallbacks(new AdvertisedDevice_cb());
-  pBLEScan->setInterval(1349);
-  pBLEScan->setWindow(449);
-  pBLEScan->setActiveScan(true);
-  pBLEScan->start(5, false);
-
-  is_connected = connectToServer();
+  is_connected = ble_reconnect();
 
   if (!is_connected) {
     // If not getting connected
@@ -338,7 +324,7 @@ void loop() {
   float mtr_power = 0;
   if ((remote_data & 0xF0) > 0) {
     if ((remote_data & 0x90) == 144 || (remote_data & 0x90) == 96) {
-      mtr_power = 1.2;  // The power when running at opposite direction
+      mtr_power = 0.8;  // The power when running at opposite direction
     } else if ((remote_data & 0xA0) == 10 || (remote_data & 0x50) == 80) {
       mtr_power = 1.0;  // The power when running at the same direction
     } else {

@@ -64,10 +64,12 @@
 // The higher, the smoother but less responsive
 #define SAMPLING_SIZE 5
 
-
 // Bluetooth UUID
 // KEEP THIS SAME TO THE REMOTE SO THEY KNOW WHAT TO FIND
 #define SERVICE_UUID "c973126d-5afe-4aec-ab49-f8ffbd14f059"
 #define CHARACTERISTIC_UUID "9ca77c0d-14a4-403d-9677-0c2bf42b8194"
+
+#define BLE_REMOTE_NAME "esp32-glove-server"
+#define BLE_HOST_NAME "esp32-wheelchair-client"
 
 #endif
