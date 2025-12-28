@@ -64,8 +64,10 @@ void MotorController::update() {
     __is_ready = true;
   }
 
-  if (!__is_ready) return kill();
-
+  if (!__is_ready) {
+    Serial.println(F("Motor is not ready!"));
+    return kill();
+  }
   // Limit the power within 0-255 range 
   const float use_power_f =
       constrain(__power * static_cast<float>((MOTOR_MAX_POWER)), 0, 255);

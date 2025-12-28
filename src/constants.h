@@ -4,7 +4,7 @@
 // May not be accurate to real measurement
 #define OBSTACLE_DISTANCE_THRESHOLD 69.0  // cm
 
-#define MOTOR_MAX_POWER 90  // 0 = No Power, 255 = Max Power (0-255)
+#define MOTOR_MAX_POWER 128  // 0 = No Power, 255 = Max Power (0-255)
 
 // Slowly power on the motor so we don't stress the motor driver
 #define MOTOR_ACCELERATION_TIME 3000  // ms
@@ -44,7 +44,7 @@
 #define OVERRIDE_PUSH_BTN 21  // OVERRIDE PUSH BUTTON
 /** END PINS **/
 
-#define USE_MOTOR_DRIVER 1       // 1 = Motor driver, 0 = relay  (0, 1)
+#define USE_MOTOR_DRIVER 1      // 1 = Motor driver, 0 = relay  (0, 1)
 #define USE_MOTOR_PWM_CHANNEL 1  // Use PWM
 
 // Sense restriction and default faulty protection

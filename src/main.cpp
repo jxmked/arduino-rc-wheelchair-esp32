@@ -16,6 +16,9 @@
 #include "./structs.h"
 
 static void logging_motor_data();
+void sys_restart();
+void get_mtr_state(MotorController* mtr, bool next_mtr);
+
 void S_LOG(String value);
 
 SignalLED Signal_LED({
@@ -39,6 +42,7 @@ Boot boot_anim;
 TimeInterval deoverride_timer(5000, 0, true);
 TimeInterval obst_clear(3000, 0, true);
 TimeInterval obst_mtr_discon(750, 0, true);
+TimeInterval mtr_state_chck(1000, 0, true);
 
 bool is_obs_found = false;
 bool is_override = false;
@@ -73,23 +77,36 @@ static void notifyCallback(BLERemoteCharacteristic* _, uint8_t* data,
 }
 
 bool ble_reconnect() {
+  Serial.println("Searching for remote");
   BLEScan* pScan = BLEDevice::getScan();
   pScan->setActiveScan(true);
 
-  BLEScanResults devices = pScan->start(10);
+  // When using Arduino IDE
+  // This line throws no error
+
+  // WHen using PlatformIO
+  // This line throws error. Just change uncomment and comment the other lines
+  BLEScanResults devices = pScan->start(3);
+  // BLEScanResults* devices = pScan->start(3); // Uncomment me at Arduino IDE
 
   for (uint8_t i = 0; i < devices.getCount(); i++) {
+    // for (uint8_t i = 0; i < devices->getCount(); i++) { /** Uncomment me at
+    // Arduino IDE */ Arduino IDE BLEAdvertisedDevice device =
+    // devices->getDevice(i); /** Uncomment me at Arduino IDE */
     BLEAdvertisedDevice device = devices.getDevice(i);
-
-    if (device.getName() == BLE_REMOTE_NAME) {
+    String name = device.getName().c_str();
+    if (name == BLE_REMOTE_NAME) {
       selected_device = &device;
+      Serial.print("Device found: ");
+      Serial.println(name);
       // Break the loop and focus on the device we wanted to connected
       break;
     }
   }
 
   if (selected_device == nullptr) {
-    ESP.restart();
+    Serial.println("Didn't catch that!");
+    sys_restart();
     return false;
   }
 
@@ -97,12 +114,13 @@ bool ble_reconnect() {
   pClient->connect(selected_device->getAddress());
 
   if (!pClient->isConnected()) {
-    ESP.restart();
+    Serial.println("Unable to connect to remote!");
+    sys_restart();
+
     return false;
   }
 
-  BLERemoteService* p_remote_se =
-      pClient->getService(selected_device->getServiceUUID());
+  BLERemoteService* p_remote_se = pClient->getService(SERVICE_UUID_B);
 
   if (p_remote_se) {
     rem_chartc = p_remote_se->getCharacteristic(CHARACTERISTIC_UUID_B);
@@ -131,11 +149,10 @@ void setup() {
     // If not getting connected
     // Wait for 3 Sec before restarting the system
     S_LOG("Handshake: FAILED");
-    S_LOG("Restarting in 3 Seconds");
-
-    delay(3000);
-    ESP.restart();
+    sys_restart();
   }
+
+  Serial.println("Bluetooth Connected!");
 
   // Motor actions - Structure
   // 2 bits for each motor
@@ -164,9 +181,9 @@ void setup() {
 
 void loop() {
   // Check if we're still receiving data from bluetooth
-  if (millis() - last_data_ms >= 250) {
-    is_connected = false;
-  }
+  // if (millis() - last_data_ms >= 1000) {
+  //   is_connected = false;
+  // }
 
   digitalWrite(2, is_connected ? HIGH : LOW);
 
@@ -322,11 +339,12 @@ void loop() {
   // Check if only 1 motor is active so we can multiply the power of it
   // to able to move the wheelchair
   float mtr_power = 0;
+
   if ((remote_data & 0xF0) > 0) {
     if ((remote_data & 0x90) == 144 || (remote_data & 0x90) == 96) {
-      mtr_power = 0.8;  // The power when running at opposite direction
+      mtr_power = 1.4;  // The power when running at opposite direction
     } else if ((remote_data & 0xA0) == 10 || (remote_data & 0x50) == 80) {
-      mtr_power = 1.0;  // The power when running at the same direction
+      mtr_power = 1.4;  // The power when running at the same direction
     } else {
       mtr_power = 1.4;  // The power when one 1 motor is running
     }
@@ -350,9 +368,8 @@ void loop() {
     // motor power we need, prevent it.
     mtr_power = constrain(final_mtr_power, 0, mtr_power);
     /////////////////////////////////////
+    mtr_power = 1.0;  // Fixed
 
-    M1.stop();
-    M1.disconnect((remote_data & 0x30) > 0);
     if ((remote_data & 0xC0) > 0) {
       if ((remote_data & 0x40) > 0) {
         M1.reverse(mtr_power);
@@ -361,8 +378,6 @@ void loop() {
       }
     }
 
-    M2.stop();
-    M2.disconnect(((remote_data & 0xC0) > 0));
     if ((remote_data & 0x30) > 0) {
       if ((remote_data & 0x10) > 0) {
         M2.reverse(mtr_power);
@@ -372,13 +387,19 @@ void loop() {
     }
   } else {
     mtr_just_started = false;
+
+    M1.stop();
+    M1.disconnect((remote_data & 0x30) > 0);
+
+    M2.stop();
+    M2.disconnect(((remote_data & 0xC0) > 0));
   }
 
   logging_motor_data();
 
-  if ((M1.state() != MotorState::DISCONNECT ||
+  if ((M1.state() != MotorState::DISCONNECT &&
        M1.state() != MotorState::STOP) ||
-      (M2.state() != MotorState::DISCONNECT ||
+      (M2.state() != MotorState::DISCONNECT &&
        M2.state() != MotorState::STOP)) {
     Signal_LED.setState(E_SignalLED::GESTURE, true);
   }
@@ -417,6 +438,55 @@ static void logging_motor_data() {
   }
 
   S_LOG(str);
+
+  if (mtr_state_chck.marked()) {
+    Serial.print("M1|M2: ");
+    get_mtr_state(&M1, true);
+    get_mtr_state(&M2, false);
+    Serial.println("");
+  }
+}
+
+void get_mtr_state(MotorController* mtr, bool next_mtr) {
+  const MotorState c_state = mtr->state();
+
+  if (next_mtr) {
+    switch (c_state) {
+      case MotorState::STOP:
+        Serial.print(F("Stop | "));
+        return;
+
+      case MotorState::FORWARD:
+        Serial.print(F("Forward | "));
+        return;
+
+      case MotorState::REVERSE:
+        Serial.print(F("Reverse | "));
+        return;
+
+      case MotorState::DISCONNECT:
+        Serial.print(F("Disconnect | "));
+        return;
+    }
+  } else {
+    switch (c_state) {
+      case MotorState::STOP:
+        Serial.print(F("Stop "));
+        return;
+
+      case MotorState::FORWARD:
+        Serial.print(F("Forward"));
+        return;
+
+      case MotorState::REVERSE:
+        Serial.print(F("Reverse"));
+        return;
+
+      case MotorState::DISCONNECT:
+        Serial.print(F("Disconnect"));
+        return;
+    }
+  }
 }
 
 void S_LOG(String value) {
@@ -426,4 +496,10 @@ void S_LOG(String value) {
     Serial.println(value);
     last_string = value;
   }
+}
+
+void sys_restart() {
+  Serial.println("Restarting in 3 seconds");
+  delay(3000);
+  ESP.restart();
 }
